@@ -1,7 +1,7 @@
 
 # coding: utf-8
 
-# In[1]:
+# In[165]:
 
 
 import pandas
@@ -11,165 +11,158 @@ import sys
 
 from keras.callbacks import LambdaCallback
 from keras.models import Sequential
-from keras.layers import Dense, Activation, Embedding
+from keras.layers import Dense, Activation
 from keras.layers import LSTM, GRU
 from keras.optimizers import RMSprop, Adam
-from keras.preprocessing.sequence import pad_sequences
 
 
-# In[2]:
+# In[163]:
 
 
 cd ..
 
 
-# In[3]:
+# In[164]:
 
 
 from swnamer.process import chunk_names, create_indices
 
 
-# In[21]:
+# In[130]:
 
 
-legend_names = pandas.read_csv('data/legend_names.csv')
+legend_names = pandas.read_csv('../data/legend_names.csv')
 
 
-# In[22]:
+# In[131]:
 
 
-canon_names = pandas.read_csv('data/cannon_names.csv')
+canon_names = pandas.read_csv('../data/cannon_names.csv')
 
 
-# In[23]:
+# In[132]:
 
 
-cast_names = pandas.read_csv('data/cast_names.csv')
+cast_names = pandas.read_csv('../data/cast_names.csv')
 
 
-# In[24]:
+# In[133]:
 
 
-clone_wars_names = pandas.read_csv('data/clone_wars.csv')
+clone_wars_names = pandas.read_csv('../data/clone_wars.csv')
 
 
-# In[25]:
+# In[134]:
 
 
-kotor_names = pandas.read_csv('data/kotor.csv')
+kotor_names = pandas.read_csv('../data/kotor.csv')
 
 
-# In[26]:
+# In[135]:
 
 
 combined = pandas.concat((legend_names, canon_names, cast_names, clone_wars_names, kotor_names))
 
 
-# In[27]:
+# In[136]:
 
 
 combined = combined.reset_index(drop=True)
 
 
-# In[28]:
+# In[137]:
 
 
 combined.shape
 
 
-# In[29]:
+# In[138]:
 
 
 combined.drop_duplicates().shape
 
 
-# In[30]:
+# In[139]:
 
 
 combined = combined.drop_duplicates()
 
 
-# In[31]:
+# In[140]:
 
 
-combined.sample(20)
+combined
 
 
-# In[32]:
+# In[141]:
 
 
 combined.loc[:, 'name'] = combined.name.str.lower()
 
 
-# In[33]:
+# In[142]:
 
 
 combined.loc[:, 'length'] = combined.name.str.len()
 
 
-# In[34]:
+# In[143]:
 
 
 combined.length.max()
 
 
-# In[35]:
+# In[144]:
 
 
 combined[combined.length == 27]
 
 
-# In[37]:
+# In[145]:
 
 
-combined.to_csv('output/starwars_processed.csv', index=False)
+combined.to_csv('../output/starwars_processed.csv', index=False)
 
 
-# In[38]:
+# In[166]:
 
 
 token_to_index, index_to_token = create_indices(combined, 'name')
 
 
-# In[39]:
+# In[167]:
 
 
 chars = token_to_index.keys()
 
 
-# In[40]:
+# In[168]:
 
 
 vocab_size = len(chars)
 vocab_size
 
 
-# In[47]:
+# In[178]:
 
 
-padded = pad_sequences(x_train, maxlen=maxlen, padding='post', truncating='post')
+timesteps = 1
 
 
-# In[56]:
-
-
-timesteps = 3
-
-
-# In[57]:
+# In[179]:
 
 
 chunks, next_char = chunk_names(combined, 'name', timesteps)
 
 
-# In[ ]:
+# In[180]:
 
 
 X = numpy.zeros((len(chunks), timesteps, vocab_size))
 y = numpy.zeros((len(chunks), vocab_size))
 
 
-# In[ ]:
+# In[181]:
 
 
 for i, chunk in enumerate(chunks):
@@ -180,7 +173,7 @@ for i, chunk in enumerate(chunks):
     y[i, index] = 1
 
 
-# In[ ]:
+# In[183]:
 
 
 model = Sequential()
@@ -192,7 +185,7 @@ optimizer = RMSprop(lr=.1, clipvalue=12)
 model.compile(optimizer, 'categorical_crossentropy')
 
 
-# In[ ]:
+# In[184]:
 
 
 def sample(preds, temperature=1.0):
@@ -245,7 +238,7 @@ def on_epoch_end(epoch, logs):
 print_callback = LambdaCallback(on_epoch_end=on_epoch_end)
 
 
-# In[ ]:
+# In[185]:
 
 
 model.fit(X, y, epochs=200, batch_size=128, callbacks=[print_callback])

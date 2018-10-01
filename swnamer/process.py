@@ -3,8 +3,25 @@ import random
 import sys
 import attr
 import string
+import re
+import matplotlib.pyplot as plt
 
 from keras.callbacks import Callback
+
+
+def plot_loss(history):
+    """
+    Plots Keras history
+    :param history:
+    :return:
+    """
+    plt.plot(history.history['loss'])
+    plt.plot(history.history['val_loss'])
+    plt.title('model loss')
+    plt.ylabel('categorical cross entropy')
+    plt.xlabel('epoch')
+    plt.legend(['train', 'test'], loc='upper right')
+    plt.show()
 
 
 def create_indices(df, column):
@@ -76,8 +93,8 @@ def chunk_names(df, col, timesteps):
 
 def create_training_vectors(chunks, next_char, token_to_index, timesteps, vocab_size):
     assert len(chunks) == len(next_char)
-    X = numpy.zeros((len(chunks), timesteps, vocab_size))
-    y = numpy.zeros((len(chunks), vocab_size))
+    X = numpy.zeros((len(chunks), timesteps, vocab_size), dtype=numpy.bool)
+    y = numpy.zeros((len(chunks), vocab_size), dtype=numpy.bool)
     for i, chunk in enumerate(chunks):
         for t, token in enumerate(chunk):
             index = token_to_index[token]
@@ -141,6 +158,56 @@ class SampleNames(Callback):
                 sys.stdout.flush()
 
             print()
+
+
+@attr.s
+class NameGenerator(object):
+    timesteps = attr.ib()
+    vocab_size = attr.ib()
+    token_to_index = attr.ib()
+    index_to_token = attr.ib()
+    model = attr.ib()
+
+    def generate(self, n=5, seed='^^^', diversity=1.0):
+        """
+        Uses the trained model to generate new names.
+        :param n: the number of names to generate
+        :param seed: characters to see the generation. Defaults to ^^^, which are the characters used to signify the start of
+        :param diversity: controls the randomness in the generation. Above 1.0 makes the generation more aggressive and
+        below 1.0 is more conservative.
+        a name.
+        :return: a list of generated names
+        """
+        remove_special = re.compile(rf'[\^$]{{{self.timesteps}}}')
+        names = []
+        while len(names) < n:
+            sequence = seed
+            generated = ''
+            generated += sequence
+
+            for i in range(50):
+                x_pred = numpy.zeros((1, self.timesteps, self.vocab_size), dtype=numpy.bool)
+                for t, char in enumerate(sequence):
+                    x_pred[0, t, self.token_to_index[char]] = 1.
+
+                preds = self.model.predict(x_pred, verbose=0)[0]
+                next_index = sample(preds, diversity)
+                next_char = self.index_to_token[next_index]
+
+                if next_char == '\n':
+                    break
+
+                generated += next_char
+
+                # fill up a buffer of size timestep, if its filled drop the first element.
+                if len(sequence) == self.timesteps:
+                    sequence = sequence[1:] + next_char
+                else:
+                    sequence += next_char
+            generated = remove_special.sub('', generated)
+            names.append(generated)
+        return names
+
 
 @attr.s
 class SampleNamesFile(Callback):
